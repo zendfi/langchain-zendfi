@@ -29,12 +29,12 @@ Environment Variables:
     ZENDFI_USER_WALLET: User wallet for session creation
     ZENDFI_MODE: 'test' (devnet) or 'live' (mainnet), default: 'test'
 
-For more information, see: https://docs.zendfi.com/langchain
+For more information, see: https://docs.zendfi.tech/langchain
 """
 
 __version__ = "0.1.0"
 __author__ = "ZendFi Team"
-__email__ = "support@zendfi.com"
+__email__ = "support@zendfi.tech"
 
 # Core tools - the main export
 from langchain_zendfi.tools import (

@@ -259,49 +259,49 @@ Important: Check your balance first with check_payment_balance if unsure about a
             
             output = f"""✅ Payment Successful!
 
-💵 Amount: ${amount_usd:.2f} USD
-📬 Recipient: {recipient}
-🔗 Transaction: {sig_display}
-📝 Description: {description}
-🆔 Payment ID: {result.payment_id}
-⚡ Status: {result.status}"""
+Amount: ${amount_usd:.2f} USD
+Recipient: {recipient}
+Transaction: {sig_display}
+Description: {description}
+Payment ID: {result.payment_id}
+Status: {result.status}"""
 
             if result.gasless_used:
-                output += "\n🎁 Gasless: Yes (ZendFi paid the network fees)"
+                output += "\nGasless: Yes (ZendFi paid the network fees)"
             
             if result.receipt_url:
-                output += f"\n🧾 Receipt: {result.receipt_url}"
+                output += f"\nReceipt: {result.receipt_url}"
             
             if result.confirmed_in_ms:
-                output += f"\n⏱️ Confirmed in: {result.confirmed_in_ms}ms"
+                output += f"\nConfirmed in: {result.confirmed_in_ms}ms"
             
             return output
 
         except InsufficientBalanceError as e:
-            return f"""❌ Payment Failed: Insufficient Balance
+            return f"""Payment Failed: Insufficient Balance
 
 You tried to pay ${amount_usd:.2f} but don't have enough funds.
 
-💡 Tip: Use the check_payment_balance tool to see your remaining balance,
+Tip: Use the check_payment_balance tool to see your remaining balance,
    or create a new session key with a higher limit."""
 
         except SessionKeyExpiredError as e:
-            return f"""❌ Payment Failed: Session Key Expired
+            return f"""Payment Failed: Session Key Expired
 
 Your session key has expired and can no longer be used for payments.
 
-💡 Tip: Create a new session key to continue making payments."""
+Tip: Create a new session key to continue making payments."""
 
         except SessionKeyNotFoundError as e:
-            return f"""❌ Payment Failed: No Session Key
+            return f"""Payment Failed: No Session Key
 
 No session key is configured for this agent.
 
-💡 Tip: A session key will be created automatically on the next attempt,
+Tip: A session key will be created automatically on the next attempt,
    or you can create one explicitly with specific limits."""
 
         except ZendFiAPIError as e:
-            return f"""❌ Payment Failed: {str(e)}
+            return f"""Payment Failed: {str(e)}
 
 Please verify:
 - The recipient address is a valid Solana wallet
@@ -309,7 +309,7 @@ Please verify:
 - Your session key hasn't expired"""
 
         except Exception as e:
-            return f"""❌ Unexpected Error: {str(e)}
+            return f"""Unexpected Error: {str(e)}
 
 Please try again or contact support if the issue persists."""
 
@@ -403,25 +403,24 @@ After finding a provider, use make_crypto_payment with their wallet address."""
                 if min_reputation > 0:
                     filters.append(f"min reputation {min_reputation}")
                     
-                return f"""🔍 No providers found matching your criteria:
+                return f"""No providers found matching your criteria:
 {', '.join(filters)}
 
-💡 Try:
+Try:
 - Broadening your search (higher max_price or lower min_reputation)
 - Checking for alternative service types"""
             
-            result = f"""🔍 Found {len(providers)} provider(s) for '{service_type}'
+            result = f"""Found {len(providers)} provider(s) for '{service_type}'
 
 """
             for i, provider in enumerate(providers, 1):
                 stars = "⭐" * int(provider.reputation) + "☆" * (5 - int(provider.reputation))
                 result += f"""**{i}. {provider.agent_name}**
-   💰 Price: ${provider.price_per_unit:.3f} per unit
+   Price: ${provider.price_per_unit:.3f} per unit
    {stars} ({provider.reputation:.1f}/5.0)
-   📝 {provider.description or 'No description'}
-   💼 Agent ID: {provider.agent_id}
-   📬 Wallet: {provider.wallet}
-
+   Description: {provider.description or 'No description'}
+   Agent ID: {provider.agent_id}
+   Wallet: {provider.wallet}
 """
             
             result += """---
@@ -516,17 +515,17 @@ Use this before making payments to ensure sufficient funds."""
             bar_empty = 10 - bar_filled
             progress_bar = "█" * bar_filled + "░" * bar_empty
             
-            return f"""💰 Session Key Balance
+            return f"""Session Key Balance
 
 {status_emoji} Status: {status_text}
-📊 Balance: ${status.remaining_usdc:.2f} / ${status.limit_usdc:.2f} USD
+Balance: ${status.remaining_usdc:.2f} / ${status.limit_usdc:.2f} USD
    [{progress_bar}] {pct_remaining:.0f}% remaining
 
-💸 Spent: ${status.used_amount_usdc:.2f} USD
-📅 Expires: {status.expires_at}
+Spent: ${status.used_amount_usdc:.2f} USD
+Expires: {status.expires_at}
    ({status.days_until_expiry} days remaining)
 
-🔑 Session ID: {status.session_key_id}"""
+Session ID: {status.session_key_id}"""
 
         except SessionKeyNotFoundError:
             return """⚠️ No Session Key Found
@@ -629,20 +628,20 @@ Returns the session key details including wallet address and limits."""
             
             return f"""✅ Session Key Created Successfully!
 
-🔑 Session ID: {result.session_key_id}
-📬 Session Wallet: {result.session_wallet}
-💰 Spending Limit: ${result.limit_usdc:.2f} USD
-📅 Expires: {result.expires_at}
-🤖 Agent ID: {result.agent_id}
+Session ID: {result.session_key_id}
+Session Wallet: {result.session_wallet}
+Spending Limit: ${result.limit_usdc:.2f} USD
+Expires: {result.expires_at}
+Agent ID: {result.agent_id}
 
 You can now make autonomous payments up to your spending limit.
 Use check_payment_balance to monitor your remaining balance."""
 
         except ZendFiAPIError as e:
-            return f"❌ Failed to create session key: {str(e)}"
+            return f"Failed to create session key: {str(e)}"
         
         except Exception as e:
-            return f"❌ Unexpected error: {str(e)}"
+            return f"Unexpected error: {str(e)}"
 
 
 class ZendFiAgentSessionTool(BaseTool):
@@ -749,18 +748,17 @@ the user_wallet parameter on the tool."""
                 duration_hours=duration_hours,
             )
             
-            return f"""✅ Agent Session Created Successfully!
+            return f"""Agent Session Created Successfully!
 
-🆔 Session ID: {result.id}
-🤖 Agent: {result.agent_name or result.agent_id}
-📬 Wallet: {result.user_wallet}
-
-💰 Spending Limits:
+Session ID: {result.id}
+Agent: {result.agent_name or result.agent_id}
+Wallet: {result.user_wallet}
+Spending Limits:
    • Per Transaction: ${limits.max_per_transaction:.2f}
    • Per Day: ${limits.max_per_day:.2f}
    • Per Week: ${limits.max_per_week:.2f}
 
-📅 Expires: {result.expires_at}
+Expires: {result.expires_at}
 
 You can now make autonomous payments within your limits.
 Use check_payment_balance to monitor spending."""
@@ -861,13 +859,13 @@ Returns:
                 try:
                     ppp = await client.get_ppp_factor(country_code)
                     ppp_info = f"""
-🌍 PPP Factor for {ppp.country_name}:
+PPP Factor for {ppp.country_name}:
    Factor: {ppp.ppp_factor:.2f}
    Adjustment: {ppp.adjustment_percentage:+.0f}%
    Local Currency: {ppp.currency_code}
 """
                 except ZendFiAPIError:
-                    ppp_info = f"\n⚠️ Could not fetch PPP data for {country_code}\n"
+                    ppp_info = f"\nCould not fetch PPP data for {country_code}\n"
             
             # Get AI pricing suggestion
             suggestion = await client.get_pricing_suggestion(
@@ -878,23 +876,23 @@ Returns:
             
             discount = ((base_price - suggestion.suggested_amount) / base_price) * 100 if base_price > 0 else 0
             
-            return f"""💰 Pricing Suggestion
+            return f"""Pricing Suggestion
 
-📊 Base Price: ${base_price:.2f} USD
-✨ Suggested Price: ${suggestion.suggested_amount:.2f} USD
-📉 Discount: {discount:.0f}%
+Base Price: ${base_price:.2f} USD
+Suggested Price: ${suggestion.suggested_amount:.2f} USD
+Discount: {discount:.0f}%
 {ppp_info}
-📝 Reasoning: {suggestion.reasoning}
+Reasoning: {suggestion.reasoning}
 
-💡 Price Range:
+Price Range:
    Min: ${suggestion.min_amount:.2f}
    Max: ${suggestion.max_amount:.2f}"""
 
         except ZendFiAPIError as e:
-            return f"❌ Pricing suggestion failed: {str(e)}"
+            return f"Pricing suggestion failed: {str(e)}"
         
         except Exception as e:
-            return f"❌ Unexpected error: {str(e)}"
+            return f"Unexpected error: {str(e)}"
 
 
 # ============================================

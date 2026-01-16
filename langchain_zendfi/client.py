@@ -3,7 +3,7 @@ ZendFi Client - Production API Integration
 ===========================================
 Direct HTTP client for ZendFi's Agentic Intent Protocol (AIP) APIs.
 
-Makes real HTTP calls to ZendFi's REST API, matching the TypeScript SDK's
+Makes real HTTP calls to ZendFi's REST API,
 exact endpoint structure. Designed for production use with LangChain agents.
 
 API Endpoints (from TypeScript SDK analysis):
@@ -43,8 +43,8 @@ class ZendFiMode(str, Enum):
     LIVE = "live"  # Solana mainnet-beta
 
 
-# ============================================
-# Data Classes (matching TypeScript SDK types)
+# ===========================================
+# Data Classes 
 # ============================================
 
 @dataclass
@@ -252,7 +252,7 @@ class ZendFiClient:
     """
     
     # API Base URL (same for test/live, differentiated by API key)
-    BASE_URL = "https://api.zendfi.com"
+    BASE_URL = "https://api.zendfi.tech"
     
     def __init__(
         self,
@@ -376,7 +376,7 @@ class ZendFiClient:
             except (httpx.TimeoutException, httpx.ConnectError) as e:
                 last_error = e
                 if attempt < self.max_retries - 1:
-                    wait_time = 0.5 * (2 ** attempt)  # Exponential backoff
+                    wait_time = 0.5 * (2 ** attempt)
                     if self.debug:
                         print(f"[ZendFi] Transient error, retrying in {wait_time}s...")
                     await asyncio.sleep(wait_time)
@@ -427,7 +427,7 @@ class ZendFiClient:
             self._http_client = None
     
     # ============================================
-    # Agent Sessions API (Recommended for LangChain)
+    # Agent Sessions API
     # ============================================
     
     async def create_agent_session(
@@ -699,7 +699,7 @@ class ZendFiClient:
         )
     
     # ============================================
-    # Session Keys API (Device-Bound)
+    # Session Keys API
     # ============================================
     
     async def create_session_key(

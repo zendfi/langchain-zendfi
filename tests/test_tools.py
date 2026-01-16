@@ -181,7 +181,7 @@ class TestPaymentToolExecution:
             amount_usd=1.50,
             gasless_used=True,
             settlement_complete=True,
-            receipt_url="https://api.zendfi.com/receipt/pay_123",
+            receipt_url="https://api.zendfi.tech/receipt/pay_123",
             next_steps="",
             created_at="2024-01-16T00:00:00Z",
             transaction_signature="5wHuFakeSignature12345678901234567890",

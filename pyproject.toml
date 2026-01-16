@@ -9,7 +9,7 @@ description = "LangChain tools for autonomous cryptocurrency payments on Solana 
 readme = "README.md"
 license = { text = "MIT" }
 authors = [
-    { name = "ZendFi Team", email = "support@zendfi.com" }
+    { name = "ZendFi Team", email = "support@zendfi.tech" }
 ]
 keywords = [
     "langchain",
@@ -64,8 +64,8 @@ dev = [
 ]
 
 [project.urls]
-Homepage = "https://zendfi.com"
-Documentation = "https://docs.zendfi.com/langchain"
+Homepage = "https://zendfi.tech"
+Documentation = "https://docs.zendfi.tech/langchain"
 Repository = "https://github.com/zendfi/langchain-zendfi"
 Changelog = "https://github.com/zendfi/langchain-zendfi/blob/main/CHANGELOG.md"
 

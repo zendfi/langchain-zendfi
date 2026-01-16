@@ -31,7 +31,7 @@ load_dotenv()
 def check_environment():
     """Verify required environment variables are set."""
     required = {
-        "ZENDFI_API_KEY": "Your ZendFi API key (get from zendfi.com)",
+        "ZENDFI_API_KEY": "Your ZendFi API key (get from zendfi.tech)",
         "OPENAI_API_KEY": "Your OpenAI API key (for GPT-4)",
     }
     

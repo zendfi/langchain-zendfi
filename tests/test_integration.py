@@ -77,7 +77,7 @@ class TestSmartPaymentFlow:
                 "amount_usd": 1.50,
                 "gasless_used": True,
                 "settlement_complete": True,
-                "receipt_url": "https://api.zendfi.com/receipt/pay_abc123",
+                "receipt_url": "https://api.zendfi.tech/receipt/pay_abc123",
                 "next_steps": "",
                 "created_at": "2024-01-16T12:00:00Z",
                 "transaction_signature": "5wHuSignature12345678901234567890abcdef",
@@ -116,7 +116,7 @@ class TestSmartPaymentFlow:
                 "created_at": "2024-01-16T12:00:00Z",
                 "requires_signature": True,
                 "unsigned_transaction": "base64EncodedTransaction...",
-                "submit_url": "https://api.zendfi.com/payments/pay_pending123/submit-signed",
+                "submit_url": "https://api.zendfi.tech/payments/pay_pending123/submit-signed",
             }
             
             result = await client.smart_payment(
