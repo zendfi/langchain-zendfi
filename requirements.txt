@@ -1,0 +1,29 @@
+# LangChain ZendFi - Production Dependencies
+langchain>=0.2.0
+langchain-core>=0.2.0
+langchain-openai>=0.1.0
+pydantic>=2.0.0
+httpx>=0.25.0
+aiohttp>=3.9.0
+
+# Optional: Other LLM providers
+# langchain-anthropic>=0.1.0
+# langchain-google-genai>=0.1.0
+
+# Development dependencies
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.0.0
+black>=23.0.0
+ruff>=0.1.0
+mypy>=1.0.0
+
+# For examples
+python-dotenv>=1.0.0
+rich>=13.0.0  # Pretty console output
+
+# ZendFi SDK
+# Install from local source during development:
+#   pip install -e ../zendfi-toolkit/packages/sdk-python
+# Or from PyPI when published:
+#   zendfi-sdk>=0.1.0

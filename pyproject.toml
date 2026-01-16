@@ -1,0 +1,131 @@
+[build-system]
+requires = ["setuptools>=64", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "langchain-zendfi"
+version = "0.1.0"
+description = "LangChain tools for autonomous cryptocurrency payments on Solana via ZendFi"
+readme = "README.md"
+license = { text = "MIT" }
+authors = [
+    { name = "ZendFi Team", email = "support@zendfi.com" }
+]
+keywords = [
+    "langchain",
+    "zendfi", 
+    "solana",
+    "crypto",
+    "payments",
+    "ai-agents",
+    "autonomous-payments",
+    "session-keys",
+    "mpc",
+    "lit-protocol"
+]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+    "Topic :: Office/Business :: Financial :: Point-Of-Sale",
+]
+requires-python = ">=3.9"
+dependencies = [
+    "langchain>=0.2.0",
+    "langchain-core>=0.2.0",
+    "pydantic>=2.0.0",
+    "httpx>=0.25.0",
+]
+
+[project.optional-dependencies]
+openai = ["langchain-openai>=0.1.0"]
+anthropic = ["langchain-anthropic>=0.1.0"]
+google = ["langchain-google-genai>=0.1.0"]
+all = [
+    "langchain-openai>=0.1.0",
+    "langchain-anthropic>=0.1.0", 
+    "langchain-google-genai>=0.1.0",
+]
+dev = [
+    "pytest>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "black>=23.0.0",
+    "ruff>=0.1.0",
+    "mypy>=1.0.0",
+    "python-dotenv>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://zendfi.com"
+Documentation = "https://docs.zendfi.com/langchain"
+Repository = "https://github.com/zendfi/langchain-zendfi"
+Changelog = "https://github.com/zendfi/langchain-zendfi/blob/main/CHANGELOG.md"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["langchain_zendfi*"]
+
+[tool.black]
+line-length = 100
+target-version = ['py39', 'py310', 'py311', 'py312']
+include = '\.pyi?$'
+exclude = '''
+/(
+    \.git
+  | \.hg
+  | \.mypy_cache
+  | \.tox
+  | \.venv
+  | _build
+  | buck-out
+  | build
+  | dist
+)/
+'''
+
+[tool.ruff]
+line-length = 100
+target-version = "py39"
+
+[tool.ruff.lint]
+select = [
+    "E",   # pycodestyle errors
+    "W",   # pycodestyle warnings
+    "F",   # pyflakes
+    "I",   # isort
+    "C",   # flake8-comprehensions
+    "B",   # flake8-bugbear
+    "UP",  # pyupgrade
+]
+ignore = [
+    "E501",  # line too long (handled by black)
+    "B008",  # do not perform function calls in argument defaults
+    "C901",  # too complex
+]
+
+[tool.mypy]
+python_version = "3.9"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+disallow_incomplete_defs = true
+check_untyped_defs = true
+strict_optional = true
+warn_redundant_casts = true
+warn_unused_ignores = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+asyncio_mode = "auto"
+addopts = "-v --tb=short"
