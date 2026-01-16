@@ -2,6 +2,7 @@
 Unit Tests for LangChain ZendFi Tools
 =====================================
 Tests tool initialization, schemas, and output formatting.
+Uses mocked API responses matching the real ZendFi API structure.
 """
 
 import pytest
@@ -11,13 +12,22 @@ from langchain_zendfi import (
     ZendFiMarketplaceTool,
     ZendFiBalanceTool,
     ZendFiCreateSessionTool,
+    ZendFiAgentSessionTool,
+    ZendFiPricingTool,
     create_zendfi_tools,
+    create_minimal_zendfi_tools,
 )
 from langchain_zendfi.client import (
     ZendFiClient,
     PaymentResult,
+    SmartPaymentResult,
     SessionKeyStatus,
+    SessionKeyResult,
+    AgentSession,
+    SessionLimits,
     AgentProvider,
+    PPPFactor,
+    PricingSuggestion,
 )
 
 
@@ -44,6 +54,16 @@ class TestToolInitialization:
         tool = ZendFiCreateSessionTool(api_key="test_key")
         assert tool.name == "create_session_key"
     
+    def test_agent_session_tool_has_correct_name(self):
+        """Agent session tool should have the expected name."""
+        tool = ZendFiAgentSessionTool(api_key="test_key")
+        assert tool.name == "create_agent_session"
+    
+    def test_pricing_tool_has_correct_name(self):
+        """Pricing tool should have the expected name."""
+        tool = ZendFiPricingTool(api_key="test_key")
+        assert tool.name == "get_pricing_suggestion"
+    
     def test_tools_have_descriptions(self):
         """All tools should have non-empty descriptions."""
         tools = create_zendfi_tools(api_key="test_key")
@@ -51,16 +71,27 @@ class TestToolInitialization:
             assert tool.description
             assert len(tool.description) > 50
     
-    def test_create_zendfi_tools_returns_four_tools(self):
-        """create_zendfi_tools should return all four tools."""
+    def test_create_zendfi_tools_returns_six_tools(self):
+        """create_zendfi_tools should return all six tools."""
         tools = create_zendfi_tools(api_key="test_key")
-        assert len(tools) == 4
+        assert len(tools) == 6
         
         names = {tool.name for tool in tools}
         assert "make_crypto_payment" in names
         assert "search_agent_marketplace" in names
         assert "check_payment_balance" in names
         assert "create_session_key" in names
+        assert "create_agent_session" in names
+        assert "get_pricing_suggestion" in names
+    
+    def test_create_minimal_tools_returns_two_tools(self):
+        """create_minimal_zendfi_tools should return payment and balance tools."""
+        tools = create_minimal_zendfi_tools(api_key="test_key")
+        assert len(tools) == 2
+        
+        names = {tool.name for tool in tools}
+        assert "make_crypto_payment" in names
+        assert "check_payment_balance" in names
 
 
 class TestPaymentToolSchema:
@@ -141,19 +172,21 @@ class TestPaymentToolExecution:
         """Successful payment should return confirmation message."""
         tool = ZendFiPaymentTool(api_key="test_key")
         
-        # Mock the client
+        # Mock the client with SmartPaymentResult (production API)
         mock_client = AsyncMock()
-        mock_client.make_payment.return_value = PaymentResult(
+        mock_client._session_agent_id = "test-agent"
+        mock_client.smart_payment.return_value = SmartPaymentResult(
             payment_id="pay_123",
-            signature="5wHuFakeSignature12345678901234567890",
             status="confirmed",
-            amount=1.50,
-            recipient="TestWallet123",
+            amount_usd=1.50,
+            gasless_used=True,
+            settlement_complete=True,
+            receipt_url="https://api.zendfi.com/receipt/pay_123",
+            next_steps="",
+            created_at="2024-01-16T00:00:00Z",
+            transaction_signature="5wHuFakeSignature12345678901234567890",
+            confirmed_in_ms=450,
         )
-        mock_client.ensure_session_key.return_value = {
-            "session_key_id": "session_123",
-            "session_wallet": "SessionWallet123",
-        }
         tool._client = mock_client
         
         result = await tool._arun(
@@ -172,12 +205,17 @@ class TestPaymentToolExecution:
         tool = ZendFiPaymentTool(api_key="test_key")
         
         mock_client = AsyncMock()
-        mock_client.make_payment.return_value = PaymentResult(
+        mock_client._session_agent_id = "test-agent"
+        mock_client.smart_payment.return_value = SmartPaymentResult(
             payment_id="pay_123",
-            signature="5wHuFakeSignature",
             status="confirmed",
-            amount=10.00,
-            recipient="Wallet123",
+            amount_usd=10.00,
+            gasless_used=False,
+            settlement_complete=True,
+            receipt_url="",
+            next_steps="",
+            created_at="2024-01-16T00:00:00Z",
+            transaction_signature="5wHuFakeSignature",
         )
         tool._client = mock_client
         
@@ -189,6 +227,34 @@ class TestPaymentToolExecution:
         
         # Should show $10.00, not $10.0 or $10
         assert "$10.00" in result
+    
+    @pytest.mark.asyncio
+    async def test_payment_shows_gasless_indicator(self):
+        """Payment should indicate when gasless was used."""
+        tool = ZendFiPaymentTool(api_key="test_key")
+        
+        mock_client = AsyncMock()
+        mock_client._session_agent_id = "test-agent"
+        mock_client.smart_payment.return_value = SmartPaymentResult(
+            payment_id="pay_123",
+            status="confirmed",
+            amount_usd=5.00,
+            gasless_used=True,
+            settlement_complete=True,
+            receipt_url="",
+            next_steps="",
+            created_at="2024-01-16T00:00:00Z",
+            transaction_signature="5wHuFakeSignature",
+        )
+        tool._client = mock_client
+        
+        result = await tool._arun(
+            recipient="Wallet123",
+            amount_usd=5.00,
+            description="Test",
+        )
+        
+        assert "gasless" in result.lower() or "🎁" in result
 
 
 class TestMarketplaceToolExecution:

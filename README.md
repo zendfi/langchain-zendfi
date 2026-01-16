@@ -1,4 +1,4 @@
-# 🔗 LangChain ZendFi Integration
+# LangChain ZendFi Integration
 
 [![Python 3.9+](https://img.shields.io/badge/python-3.9+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
@@ -7,12 +7,12 @@
 **Enable LangChain agents to make autonomous cryptocurrency payments on Solana.**
 
 LangChain ZendFi provides production-ready tools for AI agents to:
-- 💸 **Make Payments**: Execute autonomous crypto payments within spending limits
-- 🔐 **Stay Secure**: Non-custodial session keys keep users in control
-- ⛽ **Go Gasless**: Backend handles all Solana transaction fees
-- 🏪 **Discover Services**: Search marketplace for agent service providers
+- **Make Payments**: Execute autonomous crypto payments within spending limits
+- **Stay Secure**: Non-custodial session keys keep users in control
+- **Go Gasless**: Backend handles all Solana transaction fees
+- **Discover Services**: Search marketplace for agent service providers
 
-## 🚀 Quick Start
+## Quick Start
 
 ### Installation
 
@@ -42,11 +42,11 @@ result = executor.invoke({
 })
 ```
 
-## 🔑 Setup
+## Setup
 
 ### 1. Get API Key
 
-Sign up at [zendfi.com](https://zendfi.com) to get your API key.
+Sign up at [zendfi.tech](https://zendfi.tech) to get your API key.
 
 ### 2. Set Environment Variables
 
@@ -62,7 +62,7 @@ ZENDFI_API_KEY=zk_test_your_api_key
 OPENAI_API_KEY=sk-your_openai_key
 ```
 
-## 📦 Available Tools
+## Available Tools
 
 ### `ZendFiPaymentTool`
 
@@ -114,7 +114,7 @@ result = tool.invoke({
 
 ### `ZendFiCreateSessionTool`
 
-Create a new session key with custom limits.
+Create a device-bound session key with custom limits.
 
 ```python
 from langchain_zendfi import ZendFiCreateSessionTool
@@ -127,6 +127,37 @@ result = tool.invoke({
 })
 ```
 
+### `ZendFiAgentSessionTool` (Recommended)
+
+Create an agent session with flexible spending limits. This is the **recommended** approach for LangChain agents - no client-side cryptography required.
+
+```python
+from langchain_zendfi import ZendFiAgentSessionTool
+
+tool = ZendFiAgentSessionTool()
+result = tool.invoke({
+    "agent_id": "shopping-agent",
+    "max_per_day": 100.0,
+    "max_per_transaction": 25.0,
+    "duration_hours": 24
+})
+```
+
+### `ZendFiPricingTool`
+
+Get PPP-adjusted pricing suggestions for fair global pricing.
+
+```python
+from langchain_zendfi import ZendFiPricingTool
+
+tool = ZendFiPricingTool()
+result = tool.invoke({
+    "base_price": 10.0,
+    "country_code": "BR"  # Brazil
+})
+# Returns: suggested price, adjustment factor, reasoning
+```
+
 ### Create All Tools at Once
 
 ```python
@@ -137,10 +168,16 @@ tools = create_zendfi_tools(
     session_limit_usd=10.0,
     debug=True
 )
-# Returns: [BalanceTool, MarketplaceTool, PaymentTool, CreateSessionTool]
+# Returns all 6 tools: Payment, Balance, AgentSession, 
+#                      CreateSession, Marketplace, Pricing
+
+# For simpler agents, use minimal tools:
+from langchain_zendfi import create_minimal_zendfi_tools
+tools = create_minimal_zendfi_tools(session_limit_usd=10.0)
+# Returns: [PaymentTool, BalanceTool]
 ```
 
-## 🤖 Agent Commerce Example
+## Agent Commerce Example
 
 Watch an agent autonomously discover providers and make purchases:
 
@@ -180,7 +217,7 @@ result = executor.invoke({
 })
 ```
 
-## 🔒 Security Architecture
+## Security Architecture
 
 LangChain ZendFi uses **session keys** for secure autonomous payments:
 
@@ -196,7 +233,7 @@ LangChain ZendFi uses **session keys** for secure autonomous payments:
 │     └─ Request validated against spending limits            │
 │                                                             │
 │  3. Backend builds + submits transaction                    │
-│     └─ Gasless: backend pays all Solana fees               │
+│     └─ Gasless: backend pays all Solana fees                │
 │                                                             │
 │  4. Payment confirmed on Solana (~400ms)                    │
 │     └─ Transaction signature returned                       │
@@ -205,13 +242,13 @@ LangChain ZendFi uses **session keys** for secure autonomous payments:
 ```
 
 **Key Security Features:**
-- ✅ **Non-Custodial**: Private keys never leave user's device
-- ✅ **Spending Limits**: Hard caps on per-transaction and total spending
-- ✅ **Time Bounds**: Session keys automatically expire
-- ✅ **Gasless**: No SOL required in session wallet
-- ✅ **Audit Trail**: All transactions on-chain and verifiable
+- **Non-Custodial**: Private keys never leave user's device
+- **Spending Limits**: Hard caps on per-transaction and total spending
+- **Time Bounds**: Session keys automatically expire
+- **Gasless**: No SOL required in session wallet
+- **Audit Trail**: All transactions on-chain and verifiable
 
-## 🌐 Production vs Test Mode
+## Production vs Test Mode
 
 | Feature | Test Mode (`mode="test"`) | Live Mode (`mode="live"`) |
 |---------|---------------------------|---------------------------|
@@ -220,7 +257,7 @@ LangChain ZendFi uses **session keys** for secure autonomous payments:
 | API Key | `zk_test_...` | `zk_live_...` |
 | Suitable for | Development, demos | Production apps |
 
-## 📚 Examples
+## Examples
 
 ### Basic Payment
 
@@ -242,7 +279,7 @@ python agent_marketplace.py
 jupyter notebook examples/notebooks/getting_started.ipynb
 ```
 
-## 🧪 Testing
+## Testing
 
 ```bash
 # Install dev dependencies
@@ -255,41 +292,51 @@ pytest
 pytest --cov=langchain_zendfi
 ```
 
-## 📖 API Reference
+## API Reference
 
 ### ZendFiClient
 
 Direct API access without LangChain:
 
 ```python
-from langchain_zendfi import ZendFiClient
+from langchain_zendfi import ZendFiClient, SessionLimits
 
 client = ZendFiClient(
     api_key="zk_test_...",
     mode="test",
-    session_limit_usd=10.0
 )
 
-# Create session key
-session = await client.create_session_key(
-    user_wallet="7xKNH...",
+# Recommended: Create agent session (no client-side crypto needed)
+session = await client.create_agent_session(
     agent_id="my-agent",
-    limit_usdc=10.0,
+    user_wallet="7xKNH...",
+    limits=SessionLimits(
+        max_per_day=100.0,
+        max_per_transaction=25.0,
+    ),
 )
+print(f"Session: {session.id}")
 
-# Make payment
-payment = await client.make_payment(
-    amount=1.50,
-    recipient="8xYZA...",
-    description="Service payment"
+# Make smart payment
+payment = await client.smart_payment(
+    agent_id="my-agent",
+    user_wallet="8xYZA...",
+    amount_usd=1.50,
+    description="Service payment",
+    session_token=session.session_token,
 )
+print(f"Signature: {payment.transaction_signature}")
 
-# Check balance
+# Get PPP pricing
+ppp = await client.get_ppp_factor("BR")  # Brazil
+print(f"Adjustment: {ppp.adjustment_percentage}%")
+
+# Check session key status
 status = await client.get_session_status()
 print(f"Remaining: ${status.remaining_usdc}")
 ```
 
-## 🤝 Contributing
+## Contributing
 
 We welcome contributions! See [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
@@ -311,11 +358,11 @@ MIT License - see [LICENSE](LICENSE)
 
 ## 🆘 Support
 
-- 📚 **Documentation**: [docs.zendfi.com](https://docs.zendfi.com)
-- 💬 **Discord**: [discord.gg/zendfi](https://discord.gg/zendfi)
-- 📧 **Email**: support@zendfi.com
-- 🐛 **Issues**: [GitHub Issues](https://github.com/zendfi/langchain-zendfi/issues)
+- **Documentation**: [docs.zendfi.tech](https://docs.zendfi.tech)
+- **Discord**: [discord.gg/zendfi](https://discord.gg/zendfi)
+- **Email**: support@zendfi.tech
+- **Issues**: [GitHub Issues](https://github.com/zendfi/langchain-zendfi/issues)
 
 ---
 
-Built with ❤️ by the [ZendFi](https://zendfi.com) team
+Built with ❤️ by the [ZendFi](https://zendfi.tech) team

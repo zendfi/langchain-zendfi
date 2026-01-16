@@ -14,20 +14,27 @@ Tools provided:
 - ZendFiMarketplaceTool: Search for agent service providers
 - ZendFiBalanceTool: Check session key balance and limits
 - ZendFiCreateSessionTool: Create a new session key
+- ZendFiAgentSessionTool: Create agent session (recommended)
+- ZendFiPricingTool: Get PPP-adjusted pricing suggestions
 """
 
-from typing import Optional, Type, Any, ClassVar
+from typing import Optional, Type, Any, ClassVar, List
 from pydantic import BaseModel, Field
 from langchain_core.tools import BaseTool
 from langchain_core.callbacks import CallbackManagerForToolRun, AsyncCallbackManagerForToolRun
 import asyncio
+import os
 
 from langchain_zendfi.client import (
     ZendFiClient,
     ZendFiAPIError,
+    AuthenticationError,
     InsufficientBalanceError,
     SessionKeyExpiredError,
     SessionKeyNotFoundError,
+    RateLimitError,
+    ValidationError,
+    SessionLimits,
 )
 
 
@@ -89,6 +96,39 @@ class CreateSessionInput(BaseModel):
     duration_days: int = Field(
         default=7,
         description="How many days the session key should be valid (1-30)."
+    )
+
+
+class AgentSessionInput(BaseModel):
+    """Input schema for creating an agent session (recommended approach)."""
+    
+    agent_id: str = Field(
+        default="langchain-agent",
+        description="Unique identifier for this agent."
+    )
+    max_per_day: float = Field(
+        default=100.0,
+        description="Maximum spending per day in USD."
+    )
+    max_per_transaction: float = Field(
+        default=50.0,
+        description="Maximum per-transaction limit in USD."
+    )
+    duration_hours: int = Field(
+        default=24,
+        description="Session duration in hours (1-168)."
+    )
+
+
+class PricingInput(BaseModel):
+    """Input schema for getting pricing suggestions."""
+    
+    base_price: float = Field(
+        description="Original price in USD to get suggestions for."
+    )
+    country_code: Optional[str] = Field(
+        default=None,
+        description="ISO 3166-1 alpha-2 country code (e.g., 'BR', 'IN', 'NG') for PPP adjustment."
     )
 
 
@@ -205,21 +245,37 @@ Important: Check your balance first with check_payment_balance if unsure about a
         """
         try:
             client = self._get_client()
-            result = await client.make_payment(
-                amount=amount_usd,
-                recipient=recipient,
+            
+            # Use smart_payment API for production
+            result = await client.smart_payment(
+                agent_id=self._client._session_agent_id or "langchain-agent",
+                user_wallet=recipient,
+                amount_usd=amount_usd,
                 description=description,
             )
             
-            return f"""✅ Payment Successful!
+            # Format transaction signature if available
+            sig_display = result.transaction_signature[:20] + "..." if result.transaction_signature else "pending"
+            
+            output = f"""✅ Payment Successful!
 
 💵 Amount: ${amount_usd:.2f} USD
 📬 Recipient: {recipient}
-🔗 Transaction: {result.signature[:20]}...
+🔗 Transaction: {sig_display}
 📝 Description: {description}
 🆔 Payment ID: {result.payment_id}
+⚡ Status: {result.status}"""
 
-The payment has been confirmed on the Solana blockchain."""
+            if result.gasless_used:
+                output += "\n🎁 Gasless: Yes (ZendFi paid the network fees)"
+            
+            if result.receipt_url:
+                output += f"\n🧾 Receipt: {result.receipt_url}"
+            
+            if result.confirmed_in_ms:
+                output += f"\n⏱️ Confirmed in: {result.confirmed_in_ms}ms"
+            
+            return output
 
         except InsufficientBalanceError as e:
             return f"""❌ Payment Failed: Insufficient Balance
@@ -589,6 +645,258 @@ Use check_payment_balance to monitor your remaining balance."""
             return f"❌ Unexpected error: {str(e)}"
 
 
+class ZendFiAgentSessionTool(BaseTool):
+    """
+    Tool for creating agent sessions with spending limits (recommended).
+    
+    Agent sessions are the recommended approach for LangChain agents:
+    - No client-side cryptography required
+    - Server-managed session tokens
+    - Flexible spending limits (per-transaction, daily, weekly, monthly)
+    
+    Example:
+        >>> tool = ZendFiAgentSessionTool()
+        >>> result = tool.invoke({
+        ...     "agent_id": "shopping-agent",
+        ...     "max_per_day": 50.0,
+        ... })
+    """
+    
+    name: str = "create_agent_session"
+    description: str = """Create an agent session with spending limits (recommended).
+
+Agent sessions enable autonomous payments with flexible limits:
+- Per-transaction limits
+- Daily spending caps
+- Weekly and monthly limits
+
+This is the recommended approach for LangChain agents.
+
+Arguments:
+- agent_id: Unique identifier for this agent
+- max_per_day: Daily spending limit in USD (default: 100)
+- max_per_transaction: Per-transaction limit in USD (default: 50)
+- duration_hours: Session duration (default: 24)
+
+Returns session details including session token."""
+    
+    args_schema: Type[BaseModel] = AgentSessionInput
+    
+    # Configuration
+    api_key: Optional[str] = None
+    mode: str = "test"
+    user_wallet: Optional[str] = None
+    debug: bool = False
+    
+    _client: Optional[ZendFiClient] = None
+    
+    model_config: ClassVar[dict] = {"arbitrary_types_allowed": True}
+    
+    def _get_client(self) -> ZendFiClient:
+        """Get or create ZendFi client."""
+        if self._client is None:
+            self._client = ZendFiClient(
+                api_key=self.api_key,
+                mode=self.mode,
+                auto_create_session=False,
+                debug=self.debug,
+            )
+        return self._client
+    
+    def _run(
+        self,
+        agent_id: str = "langchain-agent",
+        max_per_day: float = 100.0,
+        max_per_transaction: float = 50.0,
+        duration_hours: int = 24,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        """Create agent session synchronously."""
+        return asyncio.get_event_loop().run_until_complete(
+            self._arun(agent_id, max_per_day, max_per_transaction, duration_hours, run_manager=None)
+        )
+    
+    async def _arun(
+        self,
+        agent_id: str = "langchain-agent",
+        max_per_day: float = 100.0,
+        max_per_transaction: float = 50.0,
+        duration_hours: int = 24,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Create agent session asynchronously."""
+        try:
+            client = self._get_client()
+            user_wallet = self.user_wallet or os.getenv("ZENDFI_USER_WALLET")
+            
+            if not user_wallet:
+                return """❌ User wallet not configured.
+
+Please set ZENDFI_USER_WALLET environment variable or configure
+the user_wallet parameter on the tool."""
+            
+            limits = SessionLimits(
+                max_per_transaction=max_per_transaction,
+                max_per_day=max_per_day,
+                max_per_week=max_per_day * 7,
+                max_per_month=max_per_day * 30,
+            )
+            
+            result = await client.create_agent_session(
+                agent_id=agent_id,
+                user_wallet=user_wallet,
+                limits=limits,
+                duration_hours=duration_hours,
+            )
+            
+            return f"""✅ Agent Session Created Successfully!
+
+🆔 Session ID: {result.id}
+🤖 Agent: {result.agent_name or result.agent_id}
+📬 Wallet: {result.user_wallet}
+
+💰 Spending Limits:
+   • Per Transaction: ${limits.max_per_transaction:.2f}
+   • Per Day: ${limits.max_per_day:.2f}
+   • Per Week: ${limits.max_per_week:.2f}
+
+📅 Expires: {result.expires_at}
+
+You can now make autonomous payments within your limits.
+Use check_payment_balance to monitor spending."""
+
+        except AuthenticationError:
+            return """❌ Authentication Failed
+
+Your ZendFi API key is invalid or missing.
+Please check your ZENDFI_API_KEY environment variable."""
+
+        except ValidationError as e:
+            return f"""❌ Validation Error: {str(e)}
+
+Please check your input parameters."""
+
+        except ZendFiAPIError as e:
+            return f"❌ Failed to create session: {str(e)}"
+        
+        except Exception as e:
+            return f"❌ Unexpected error: {str(e)}"
+
+
+class ZendFiPricingTool(BaseTool):
+    """
+    Tool for getting PPP-adjusted pricing suggestions.
+    
+    Enables fair global pricing by adjusting prices based on
+    Purchasing Power Parity (PPP) for different countries.
+    
+    Example:
+        >>> tool = ZendFiPricingTool()
+        >>> result = tool.invoke({
+        ...     "base_price": 10.0,
+        ...     "country_code": "BR"
+        ... })
+    """
+    
+    name: str = "get_pricing_suggestion"
+    description: str = """Get PPP-adjusted pricing suggestion for different countries.
+
+Enables fair global pricing by adjusting for purchasing power.
+
+Arguments:
+- base_price: Original price in USD
+- country_code: ISO 3166-1 alpha-2 code (e.g., 'BR' for Brazil, 'IN' for India)
+
+Returns:
+- Suggested adjusted price
+- PPP adjustment factor
+- Reasoning for the adjustment"""
+    
+    args_schema: Type[BaseModel] = PricingInput
+    
+    # Configuration
+    api_key: Optional[str] = None
+    mode: str = "test"
+    debug: bool = False
+    
+    _client: Optional[ZendFiClient] = None
+    
+    model_config: ClassVar[dict] = {"arbitrary_types_allowed": True}
+    
+    def _get_client(self) -> ZendFiClient:
+        """Get or create ZendFi client."""
+        if self._client is None:
+            self._client = ZendFiClient(
+                api_key=self.api_key,
+                mode=self.mode,
+                auto_create_session=False,
+                debug=self.debug,
+            )
+        return self._client
+    
+    def _run(
+        self,
+        base_price: float,
+        country_code: Optional[str] = None,
+        run_manager: Optional[CallbackManagerForToolRun] = None,
+    ) -> str:
+        """Get pricing suggestion synchronously."""
+        return asyncio.get_event_loop().run_until_complete(
+            self._arun(base_price, country_code, run_manager=None)
+        )
+    
+    async def _arun(
+        self,
+        base_price: float,
+        country_code: Optional[str] = None,
+        run_manager: Optional[AsyncCallbackManagerForToolRun] = None,
+    ) -> str:
+        """Get pricing suggestion asynchronously."""
+        try:
+            client = self._get_client()
+            
+            # If country code provided, first get PPP factor
+            ppp_info = ""
+            if country_code:
+                try:
+                    ppp = await client.get_ppp_factor(country_code)
+                    ppp_info = f"""
+🌍 PPP Factor for {ppp.country_name}:
+   Factor: {ppp.ppp_factor:.2f}
+   Adjustment: {ppp.adjustment_percentage:+.0f}%
+   Local Currency: {ppp.currency_code}
+"""
+                except ZendFiAPIError:
+                    ppp_info = f"\n⚠️ Could not fetch PPP data for {country_code}\n"
+            
+            # Get AI pricing suggestion
+            suggestion = await client.get_pricing_suggestion(
+                agent_id="langchain-pricing",
+                base_price=base_price,
+                location_country=country_code,
+            )
+            
+            discount = ((base_price - suggestion.suggested_amount) / base_price) * 100 if base_price > 0 else 0
+            
+            return f"""💰 Pricing Suggestion
+
+📊 Base Price: ${base_price:.2f} USD
+✨ Suggested Price: ${suggestion.suggested_amount:.2f} USD
+📉 Discount: {discount:.0f}%
+{ppp_info}
+📝 Reasoning: {suggestion.reasoning}
+
+💡 Price Range:
+   Min: ${suggestion.min_amount:.2f}
+   Max: ${suggestion.max_amount:.2f}"""
+
+        except ZendFiAPIError as e:
+            return f"❌ Pricing suggestion failed: {str(e)}"
+        
+        except Exception as e:
+            return f"❌ Unexpected error: {str(e)}"
+
+
 # ============================================
 # Convenience function for creating all tools
 # ============================================
@@ -597,8 +905,9 @@ def create_zendfi_tools(
     api_key: Optional[str] = None,
     mode: str = "test",
     session_limit_usd: float = 10.0,
+    user_wallet: Optional[str] = None,
     debug: bool = False,
-) -> list[BaseTool]:
+) -> List[BaseTool]:
     """
     Create all ZendFi tools with shared configuration.
     
@@ -606,6 +915,7 @@ def create_zendfi_tools(
         api_key: ZendFi API key (or set ZENDFI_API_KEY env var)
         mode: 'test' (devnet) or 'live' (mainnet)
         session_limit_usd: Default spending limit for auto-created sessions
+        user_wallet: User's Solana wallet address (or set ZENDFI_USER_WALLET env var)
         debug: Enable debug logging
         
     Returns:
@@ -623,8 +933,48 @@ def create_zendfi_tools(
     }
     
     return [
-        ZendFiBalanceTool(**common_config, session_limit_usd=session_limit_usd),
-        ZendFiMarketplaceTool(**common_config),
+        # Core payment tools
         ZendFiPaymentTool(**common_config, session_limit_usd=session_limit_usd),
-        ZendFiCreateSessionTool(**common_config),
+        ZendFiBalanceTool(**common_config, session_limit_usd=session_limit_usd),
+        
+        # Session management
+        ZendFiAgentSessionTool(**common_config, user_wallet=user_wallet),
+        ZendFiCreateSessionTool(**common_config, user_wallet=user_wallet),
+        
+        # Discovery and pricing
+        ZendFiMarketplaceTool(**common_config),
+        ZendFiPricingTool(**common_config),
+    ]
+
+
+def create_minimal_zendfi_tools(
+    api_key: Optional[str] = None,
+    mode: str = "test",
+    session_limit_usd: float = 10.0,
+    debug: bool = False,
+) -> List[BaseTool]:
+    """
+    Create minimal set of ZendFi tools (payment and balance only).
+    
+    Use this for simpler agents that only need payment capabilities.
+    
+    Args:
+        api_key: ZendFi API key
+        mode: 'test' or 'live'
+        session_limit_usd: Default spending limit
+        debug: Enable debug logging
+        
+    Returns:
+        List with payment and balance tools only
+    """
+    common_config = {
+        "api_key": api_key,
+        "mode": mode,
+        "debug": debug,
+        "session_limit_usd": session_limit_usd,
+    }
+    
+    return [
+        ZendFiPaymentTool(**common_config),
+        ZendFiBalanceTool(**common_config),
     ]
