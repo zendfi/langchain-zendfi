@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "langchain-zendfi"
-version = "0.1.0"
+version = "0.2.0"
 description = "LangChain tools for autonomous cryptocurrency payments on Solana via ZendFi"
 readme = "README.md"
 license = { text = "MIT" }
@@ -21,7 +21,9 @@ keywords = [
     "autonomous-payments",
     "session-keys",
     "mpc",
-    "lit-protocol"
+    "lit-protocol",
+    "device-bound",
+    "non-custodial"
 ]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -42,6 +44,8 @@ dependencies = [
     "langchain-core>=0.2.0",
     "pydantic>=2.0.0",
     "httpx>=0.25.0",
+    "pynacl>=1.5.0",
+    "cryptography>=41.0.0",
 ]
 
 [project.optional-dependencies]

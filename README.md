@@ -12,6 +12,118 @@ LangChain ZendFi provides production-ready tools for AI agents to:
 - **Go Gasless**: Backend handles all Solana transaction fees
 - **Discover Services**: Search marketplace for agent service providers
 
+## What's New in v0.2.0
+
+- **🔐 Device-Bound Session Keys**: Ed25519 keypairs with delegation verification
+- **🔒 Lit Protocol Encryption**: End-to-end encryption of keypair secrets
+- **🤖 Autonomous Agent Manager**: Stateful session management with auto-refresh
+- **⚡ Production Lit Service**: Deployed at `lit-service.zendfi.tech`
+
+### Device-Bound Session Keys (Advanced)
+
+For maximum security, create device-bound session keys with client-side cryptography:
+
+```python
+from langchain_zendfi import ZendFiClient
+from langchain_zendfi.session_keys import SessionKeysManager, CreateSessionKeyOptions
+
+# Initialize session key manager
+client = ZendFiClient(mode="test")
+manager = SessionKeysManager(client)
+
+# Create device-bound session key with PIN encryption
+result = await manager.create(CreateSessionKeyOptions(
+    user_wallet="7xKNHuser...",
+    agent_id="shopping-agent",
+    limit_usdc=100.0,
+    expires_hours=24,
+    pin="123456",  # PIN-encrypts the private key
+    enable_lit_protocol=True,  # Encrypt with Lit Protocol
+))
+
+print(f"Session Key ID: {result.session_key_id}")
+print(f"Session Wallet: {result.session_wallet}")  # Public key
+
+# Unlock to sign transactions
+manager.unlock(result.session_key_id, pin="123456")
+
+# Execute payment with delegation signature
+payment = await manager.execute_payment(
+    session_key_id=result.session_key_id,
+    recipient="8xYZArecipient...",
+    amount_usdc=1.50,
+    description="AI service payment",
+)
+```
+
+### Autonomous Agent Mode
+
+Enable fully autonomous payments with spending attestations:
+
+```python
+from langchain_zendfi.autonomy import AutonomyManager, EnableAutonomyRequest
+
+# Initialize autonomy manager
+autonomy = AutonomyManager(client, manager)
+
+# Enable autonomous mode with spending limits
+delegate = await autonomy.enable(
+    session_key_id=result.session_key_id,
+    request=EnableAutonomyRequest(
+        max_amount_usd=100.0,
+        duration_hours=24,
+    ),
+)
+
+print(f"Delegate ID: {delegate.delegate_id}")
+print(f"Expires: {delegate.expires_at}")
+
+# Execute autonomous payment (no human approval needed)
+payment = await autonomy.execute_payment(
+    delegate_id=delegate.delegate_id,
+    recipient="8xYZArecipient...",
+    amount_usdc=5.00,
+    description="Autonomous purchase",
+)
+
+# Check autonomy status
+status = await autonomy.get_status(delegate.delegate_id)
+print(f"Remaining: ${status.remaining_amount_usd}")
+print(f"Transactions: {status.transaction_count}")
+```
+
+### Cryptographic Utilities
+
+Low-level crypto functions for advanced use cases:
+
+```python
+from langchain_zendfi.crypto import (
+    generate_keypair,
+    sign_message,
+    encrypt_keypair_with_lit,
+    verify_dependencies,
+)
+
+# Check crypto dependencies
+deps = verify_dependencies()
+print(f"PyNaCl: {deps['pynacl']}")
+print(f"Cryptography: {deps['cryptography']}")
+
+# Generate Ed25519 keypair
+keypair = generate_keypair()
+print(f"Public Key: {keypair.public_key}")  # Base58 encoded
+
+# Sign a message
+message = b"Payment attestation"
+signature = sign_message(keypair, message)
+
+# Encrypt keypair with Lit Protocol (production)
+encrypted = encrypt_keypair_with_lit(
+    keypair=keypair,
+    access_control_conditions=[...],  # Lit ACCs
+)
+```
+
 ## Quick Start
 
 ### Installation
@@ -228,9 +340,11 @@ LangChain ZendFi uses **session keys** for secure autonomous payments:
 │                                                             │
 │  1. User creates session key with spending limit            │
 │     └─ Keypair generated client-side (never exposed)        │
+│     └─ Private key encrypted with PIN + Lit Protocol        │
 │                                                             │
 │  2. Agent makes payment request                             │
 │     └─ Request validated against spending limits            │
+│     └─ Delegation signature proves authorization            │
 │                                                             │
 │  3. Backend builds + submits transaction                    │
 │     └─ Gasless: backend pays all Solana fees                │
@@ -243,8 +357,10 @@ LangChain ZendFi uses **session keys** for secure autonomous payments:
 
 **Key Security Features:**
 - **Non-Custodial**: Private keys never leave user's device
+- **Lit Protocol**: Keypair secrets encrypted with threshold cryptography
 - **Spending Limits**: Hard caps on per-transaction and total spending
 - **Time Bounds**: Session keys automatically expire
+- **Delegation Signatures**: Cryptographic proof of authorization
 - **Gasless**: No SOL required in session wallet
 - **Audit Trail**: All transactions on-chain and verifiable
 

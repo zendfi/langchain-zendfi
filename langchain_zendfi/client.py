@@ -34,7 +34,7 @@ import asyncio
 import httpx
 
 # SDK Version for User-Agent
-SDK_VERSION = "0.1.0"
+SDK_VERSION = "0.2.0"  # Updated with session keys + autonomy
 
 
 class ZendFiMode(str, Enum):
@@ -302,6 +302,10 @@ class ZendFiClient:
         # HTTP client (lazy initialized)
         self._http_client: Optional[httpx.AsyncClient] = None
         
+        # Session Keys and Autonomy managers (lazy initialized)
+        self._session_keys_manager = None
+        self._autonomy_manager = None
+        
         if self.debug:
             print(f"[ZendFi] Initialized in {self.mode.value} mode")
             print(f"[ZendFi] Base URL: {self.base_url}")
@@ -425,6 +429,89 @@ class ZendFiClient:
         if self._http_client:
             await self._http_client.aclose()
             self._http_client = None
+    
+    # ============================================
+    # Session Keys Manager (Device-Bound)
+    # ============================================
+    
+    @property
+    def session_keys(self):
+        """
+        Access the Session Keys manager for device-bound session keys.
+        
+        Device-bound session keys provide TRUE non-custodial security:
+        - Client generates keypair (backend NEVER sees private key)
+        - Client encrypts with PIN + device fingerprint
+        - Backend stores encrypted blob (cannot decrypt!)
+        - Client decrypts and signs for each payment
+        
+        Example:
+            >>> # Create a session key
+            >>> from langchain_zendfi.session_keys import CreateSessionKeyOptions
+            >>> result = await client.session_keys.create(CreateSessionKeyOptions(
+            ...     user_wallet="7xKNH...",
+            ...     agent_id="shopping-agent",
+            ...     limit_usdc=100.0,
+            ...     pin="123456",
+            ... ))
+            >>> 
+            >>> # Unlock for auto-signing
+            >>> client.session_keys.unlock(result.session_key_id, "123456")
+            >>> 
+            >>> # Sign messages without PIN
+            >>> signature = client.session_keys.sign(result.session_key_id, message)
+        """
+        if self._session_keys_manager is None:
+            from langchain_zendfi.session_keys import SessionKeysManager
+            self._session_keys_manager = SessionKeysManager(self._request, self.debug)
+        return self._session_keys_manager
+    
+    # ============================================
+    # Autonomy Manager
+    # ============================================
+    
+    @property
+    def autonomy(self):
+        """
+        Access the Autonomy manager for autonomous agent signing.
+        
+        The Autonomy API enables AI agents to make payments without user 
+        interaction for each transaction, while maintaining security through:
+        - Delegation Signatures: User signs a message authorizing the agent
+        - Spending Limits: Hard caps on total spending
+        - Time Bounds: Automatic expiration
+        
+        Example:
+            >>> # Create delegation message
+            >>> message = client.autonomy.create_delegation_message(
+            ...     session_key_id="sk_123",
+            ...     max_amount_usd=100.0,
+            ...     expires_at="2024-12-10T00:00:00Z",
+            ... )
+            >>> 
+            >>> # Sign with session key
+            >>> signature = client.session_keys.sign_delegation(
+            ...     session_key_id="sk_123",
+            ...     max_amount_usd=100.0,
+            ...     expires_at="2024-12-10T00:00:00Z",
+            ...     pin="123456",
+            ... )
+            >>> 
+            >>> # Enable autonomy
+            >>> from langchain_zendfi.autonomy import EnableAutonomyRequest
+            >>> delegate = await client.autonomy.enable(
+            ...     session_key_id="sk_123",
+            ...     request=EnableAutonomyRequest(
+            ...         max_amount_usd=100.0,
+            ...         duration_hours=24,
+            ...         delegation_signature=signature,
+            ...     ),
+            ... )
+        """
+        if self._autonomy_manager is None:
+            from langchain_zendfi.autonomy import AutonomyManager
+            self._autonomy_manager = AutonomyManager(self._request, self.debug)
+        return self._autonomy_manager
     
     # ============================================
     # Agent Sessions API

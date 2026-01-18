@@ -323,9 +323,9 @@ class TestErrorHandling:
         
         tool = ZendFiPaymentTool(mode="test")
         
-        # Mock client to raise an error
+        # Mock client to raise an error on smart_payment (the actual method used)
         mock_client = AsyncMock()
-        mock_client.make_payment.side_effect = ZendFiAPIError("Network error")
+        mock_client.smart_payment.side_effect = ZendFiAPIError("Network error")
         mock_client.ensure_session_key.return_value = {
             "session_key_id": "test",
             "session_wallet": "test",
@@ -350,7 +350,7 @@ class TestErrorHandling:
         tool = ZendFiPaymentTool(mode="test")
         
         mock_client = AsyncMock()
-        mock_client.make_payment.side_effect = InsufficientBalanceError(
+        mock_client.smart_payment.side_effect = InsufficientBalanceError(
             "Insufficient balance"
         )
         mock_client.ensure_session_key.return_value = {
@@ -376,7 +376,7 @@ class TestIdempotency:
         """Payments should generate idempotency keys."""
         from langchain_zendfi import ZendFiClient
         
-        client = ZendFiClient(mode="test")
+        client = ZendFiClient(mode="test", api_key="test_key_for_idempotency")
         client._session_key_id = "test_session"
         client._session_agent_id = "test_agent"
         
